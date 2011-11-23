@@ -232,7 +232,7 @@ struct obc_transfer *obc_transfer_register(DBusConnection *conn,
 	transfer->params = params;
 
 	/* for OBEX specific mime types we don't need to register a transfer */
-	if (type != NULL &&
+	if (type != NULL && name == NULL &&
 			(strncmp(type, "x-obex/", 7) == 0 ||
 			strncmp(type, "x-bt/", 5) == 0))
 		goto done;
@@ -510,7 +510,7 @@ int obc_transfer_get(struct obc_transfer *transfer, transfer_callback_t func,
 	if (transfer->xfer != 0)
 		return -EALREADY;
 
-	if (transfer->type != NULL &&
+	if (transfer->type != NULL && transfer->name == NULL &&
 			(strncmp(transfer->type, "x-obex/", 7) == 0 ||
 			strncmp(transfer->type, "x-bt/", 5) == 0)) {
 		rsp_cb = get_buf_xfer_progress;

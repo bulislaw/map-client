@@ -181,6 +181,50 @@ static DBusMessage *map_get_message_listing(DBusConnection *connection,
 	return NULL;
 }
 
+static DBusMessage *map_get_message(DBusConnection *connection,
+					DBusMessage *message, void *user_data)
+{
+	struct map_data *map = user_data;
+	int err;
+	const char *handle, *path, *transfer_path;
+	DBusMessageIter msg_iter;
+	struct obc_transfer *transfer;
+
+	dbus_message_iter_init(message, &msg_iter);
+
+	if (dbus_message_iter_get_arg_type(&msg_iter) != DBUS_TYPE_STRING)
+		return g_dbus_create_error(message,
+				"org.openobex.Error.InvalidArguments", NULL);
+
+	dbus_message_iter_get_basic(&msg_iter, &handle);
+
+	dbus_message_iter_next(&msg_iter);
+
+	if (dbus_message_iter_get_arg_type(&msg_iter) != DBUS_TYPE_ARRAY)
+		return g_dbus_create_error(message,
+				"org.openobex.Error.InvalidArguments", NULL);
+
+	dbus_message_iter_next(&msg_iter);
+
+	if (dbus_message_iter_get_arg_type(&msg_iter) != DBUS_TYPE_STRING)
+		return g_dbus_create_error(message,
+				"org.openobex.Error.InvalidArguments", NULL);
+
+	dbus_message_iter_get_basic(&msg_iter, &path);
+
+	err = obc_session_get(map->session, "x-bt/message", handle, path,
+							NULL, 0, NULL, NULL);
+	if (err < 0)
+		return g_dbus_create_error(message, "org.openobex.Error.Failed",
+									NULL);
+
+	transfer = obc_session_get_transfer(map->session);
+	transfer_path = obc_transfer_get_path(transfer);
+
+	return g_dbus_create_reply(message, DBUS_TYPE_OBJECT_PATH,
+					&transfer_path, DBUS_TYPE_INVALID);
+}
+
 static GDBusMethodTable map_methods[] = {
 	{ "SetFolder",		"s", "",	map_setpath,
 						G_DBUS_METHOD_FLAG_ASYNC },
@@ -188,6 +232,7 @@ static GDBusMethodTable map_methods[] = {
 						G_DBUS_METHOD_FLAG_ASYNC },
 	{ "GetMessageListing",	"sa{ss}", "s",	map_get_message_listing,
 						G_DBUS_METHOD_FLAG_ASYNC },
+	{ "GetMessage",		"sa{ss}s", "o",	map_get_message },
 	{ }
 };
 

@@ -3,8 +3,44 @@
 import gobject
 
 import dbus
+import dbus.service
 import dbus.mainloop.glib
 from optparse import OptionParser
+
+class Agent(dbus.service.Object):
+    def __init__(self, conn=None, obj_path=None, verbose=False):
+        dbus.service.Object.__init__(self, conn, obj_path)
+        self.verbose = verbose
+
+    @dbus.service.method("org.openobex.Agent",
+                    in_signature="o", out_signature="s")
+    def Request(self, path):
+        return ""
+
+    @dbus.service.method("org.openobex.Agent",
+                    in_signature="ot", out_signature="")
+    def Progress(self, path, transferred):
+        if self.verbose:
+            print "Transfer progress (%d bytes)" % (transferred)
+        return
+
+    @dbus.service.method("org.openobex.Agent",
+                    in_signature="o", out_signature="")
+    def Complete(self, path):
+        if self.verbose:
+            print "Transfer finished"
+        mainloop.quit()
+
+    @dbus.service.method("org.openobex.Agent",
+                    in_signature="os", out_signature="")
+    def Error(self, path, error):
+        print "Transfer finished with an error: %s" % (error)
+        mainloop.quit()
+
+    @dbus.service.method("org.openobex.Agent",
+                    in_signature="", out_signature="")
+    def Release(self):
+        mainloop.quit()
 
 def parse_options():
     parser.add_option("-d", "--device", dest="device",
@@ -16,6 +52,11 @@ def parse_options():
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose")
     parser.add_option("-L", "--lsmsg", action="store", dest="ls_msg",
                       help="List messages in supplied CWD subdir")
+    parser.add_option("-g", "--getmsg", action="store", dest="get_msg",
+		      metavar="HANDLE", help="Pull message with given handle")
+    parser.add_option("-f", "--dest-file", action="store", dest="dest_file",
+                      metavar="FILE", default="msg.bmsg",
+                      help="Local file to store message")
 
     return parser.parse_args()
 
@@ -38,6 +79,9 @@ if  __name__ == '__main__':
     bus = dbus.SessionBus()
     mainloop = gobject.MainLoop()
 
+    path = "/test/agent"
+    agent = Agent(bus, path, options.verbose)
+
     client = dbus.Interface(bus.get_object("org.openobex.client", "/"),
                             "org.openobex.Client")
 
@@ -46,6 +90,8 @@ if  __name__ == '__main__':
 
     session = dbus.Interface(bus.get_object("org.openobex.client", session_path),
                  "org.openobex.Session")
+
+    session.AssignAgent(path)
 
     map = dbus.Interface(bus.get_object("org.openobex.client", session_path),
                  "org.openobex.MessageAccess")
@@ -58,5 +104,10 @@ if  __name__ == '__main__':
 
     if options.ls_msg is not None:
 	print map.GetMessageListing(options.ls_msg, dict())
+
+    if options.get_msg:
+        xfer = map.GetMessage(options.get_msg, dict(), options.dest_file)
+        if options.verbose:
+            print xfer
 
     mainloop.run()

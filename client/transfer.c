@@ -516,7 +516,7 @@ int obc_transfer_get(struct obc_transfer *transfer, transfer_callback_t func,
 		rsp_cb = get_buf_xfer_progress;
 	} else {
 		int fd = open(transfer->name ? : transfer->filename,
-				O_WRONLY | O_CREAT, 0600);
+				O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
 		if (fd < 0) {
 			error("open(): %s(%d)", strerror(errno), errno);

@@ -73,6 +73,29 @@ static void simple_cb(GObex *obex, GError *err, GObexPacket *rsp,
 	dbus_message_unref(map->msg);
 }
 
+static void empty_cb(struct obc_session *session, GError *err,
+							void *user_data)
+{
+	struct map_data *map = user_data;
+	DBusMessage *reply;
+
+	DBG("");
+
+	if (err != NULL) {
+		reply = g_dbus_create_error(map->msg,
+						"org.openobex.Error.Failed",
+						"%s", err->message);
+
+		goto done;
+	}
+
+	reply = dbus_message_new_method_return(map->msg);
+
+done:
+	g_dbus_send_message(conn, reply);
+	dbus_message_unref(map->msg);
+}
+
 static DBusMessage *map_setpath(DBusConnection *connection,
 					DBusMessage *message, void *user_data)
 {
@@ -225,6 +248,25 @@ static DBusMessage *map_get_message(DBusConnection *connection,
 					&transfer_path, DBUS_TYPE_INVALID);
 }
 
+static DBusMessage *map_update_inbox(DBusConnection *connection,
+					DBusMessage *message, void *user_data)
+{
+	struct map_data *map = user_data;
+	int err;
+
+	err = obc_session_put(map->session, g_strdup("\x30"),
+						"x-bt/MAP-messageUpdate",
+						NULL, NULL, NULL, 0,
+						empty_cb, map);
+	if (err < 0)
+		return g_dbus_create_error(message, "org.openobex.Error.Failed",
+									NULL);
+
+	map->msg = dbus_message_ref(message);
+
+	return NULL;
+}
+
 static GDBusMethodTable map_methods[] = {
 	{ "SetFolder",		"s", "",	map_setpath,
 						G_DBUS_METHOD_FLAG_ASYNC },
@@ -233,6 +275,8 @@ static GDBusMethodTable map_methods[] = {
 	{ "GetMessageListing",	"sa{ss}", "s",	map_get_message_listing,
 						G_DBUS_METHOD_FLAG_ASYNC },
 	{ "GetMessage",		"sa{ss}s", "o",	map_get_message },
+	{ "UpdateInbox",	"", "",		map_update_inbox,
+						G_DBUS_METHOD_FLAG_ASYNC },
 	{ }
 };
 

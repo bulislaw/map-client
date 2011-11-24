@@ -57,6 +57,8 @@ def parse_options():
     parser.add_option("-f", "--dest-file", action="store", dest="dest_file",
                       metavar="FILE", default="msg.bmsg",
                       help="Local file to store message")
+    parser.add_option("-u", "--update", action="store_true", dest="update",
+                      help="Update messages on remote device")
 
     return parser.parse_args()
 
@@ -95,6 +97,9 @@ if  __name__ == '__main__':
 
     map = dbus.Interface(bus.get_object("org.openobex.client", session_path),
                  "org.openobex.MessageAccess")
+
+    if options.update:
+        map.UpdateInbox()
 
     if options.new_dir:
         set_folder(map, options.new_dir)

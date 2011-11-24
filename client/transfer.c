@@ -445,7 +445,7 @@ static gssize put_buf_xfer_progress(void *buf, gsize len, gpointer user_data)
 		return 0;
 
 	size = transfer->size - transfer->transferred;
-	size = len > size ? len : size;
+	size = len < size ? len : size;
 	if (size == 0)
 		return 0;
 

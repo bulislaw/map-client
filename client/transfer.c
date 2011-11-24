@@ -453,7 +453,7 @@ static gssize put_buf_xfer_progress(void *buf, gsize len, gpointer user_data)
 
 	transfer->transferred += size;
 
-	if (callback)
+	if (callback && transfer->transferred < transfer->size)
 		callback->func(transfer, transfer->transferred, NULL,
 							callback->data);
 

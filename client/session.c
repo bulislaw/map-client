@@ -1379,9 +1379,13 @@ static void session_prepare_put(struct obc_session *session,
 	DBG("Transfer(%p) started", transfer);
 }
 
-int obc_session_put(struct obc_session *session, char *buf, const char *targetname)
+int obc_session_put(struct obc_session *session, char *buf, const char *type,
+				const char *filename, const char *targetname,
+				const guint8 *apparam, gint apparam_size,
+				session_callback_t func, void *user_data)
 {
 	struct obc_transfer *transfer;
+	struct obc_transfer_params *params = NULL;
 	int err;
 
 	if (session->obex == NULL)
@@ -1390,10 +1394,30 @@ int obc_session_put(struct obc_session *session, char *buf, const char *targetna
 	if (session->pending != NULL)
 		return -EISCONN;
 
-	transfer = obc_transfer_register(session->conn, NULL, targetname, NULL,
-								NULL, session);
-	if (transfer == NULL)
+	if (apparam != NULL) {
+		params = g_new0(struct obc_transfer_params, 1);
+		params->data = g_new(guint8, apparam_size);
+		memcpy(params->data, apparam, apparam_size);
+		params->size = apparam_size;
+	}
+
+	if (func != NULL) {
+		struct session_callback *callback;
+		callback = g_new0(struct session_callback, 1);
+		callback->func = func;
+		callback->data = user_data;
+		session->callback = callback;
+	}
+
+	transfer = obc_transfer_register(session->conn, filename, targetname,
+							type, params, session);
+	if (transfer == NULL) {
+		if (params != NULL) {
+			g_free(params->data);
+			g_free(params);
+		}
 		return -EIO;
+	}
 
 	obc_transfer_set_buffer(transfer, buf);
 

@@ -66,6 +66,12 @@ def set_folder(session, new_dir):
     for node in new_dir.split("/"):
         session.SetFolder(node)
 
+def push_reply(handle):
+	print "Message handle:", handle
+
+def push_error(err):
+	print "Error"
+
 if  __name__ == '__main__':
 
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
@@ -114,5 +120,8 @@ if  __name__ == '__main__':
         xfer = map.GetMessage(options.get_msg, dict(), options.dest_file)
         if options.verbose:
             print xfer
+
+    map.PushMessage("/telecom/msg/outbox", "msg", reply_handler=push_reply,
+		    error_handler=push_error)
 
     mainloop.run()

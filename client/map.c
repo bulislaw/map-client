@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <glib.h>
 #include <gdbus.h>
+#include <string.h>
 
 #include "log.h"
 
@@ -46,6 +47,12 @@ struct map_data {
 	struct obc_session *session;
 	DBusMessage *msg;
 };
+
+/* TODO: Remove this */
+struct dummy_apparam {
+	uint8_t tag;
+	uint8_t len;
+} __attribute__ ((packed));
 
 static DBusConnection *conn = NULL;
 
@@ -267,6 +274,52 @@ static DBusMessage *map_update_inbox(DBusConnection *connection,
 	return NULL;
 }
 
+static DBusMessage *map_push_message(DBusConnection *connection,
+					DBusMessage *message, void *user_data)
+{
+	struct map_data *map = user_data;
+	int err;
+	DBusMessageIter msg_iter;
+	const char *folder, *msg_file;
+	struct dummy_apparam app;
+	uint8_t *buf;
+	char charset[] = "<UTF-8>";
+
+	dbus_message_iter_init(message, &msg_iter);
+
+	if (dbus_message_iter_get_arg_type(&msg_iter) != DBUS_TYPE_STRING)
+		return g_dbus_create_error(message,
+				"org.openobex.Error.InvalidArguments", NULL);
+
+	dbus_message_iter_get_basic(&msg_iter, &folder);
+
+	dbus_message_iter_next(&msg_iter);
+
+	if (dbus_message_iter_get_arg_type(&msg_iter) != DBUS_TYPE_STRING)
+		return g_dbus_create_error(message,
+				"org.openobex.Error.InvalidArguments", NULL);
+
+	dbus_message_iter_get_basic(&msg_iter, &msg_file);
+
+	/* TODO: Delete this */
+	buf = g_new0(uint8_t, 2 + strlen(charset));
+	app.tag = 0x14;
+	app.len = 1;
+
+	memcpy(buf, &app, 2);
+	memcpy(buf+2, &charset, strlen(charset));
+
+	err = obc_session_put(map->session, NULL, "x-bt/message", msg_file,
+				folder, buf, 2+strlen(charset), empty_cb, map);
+	if (err < 0)
+		return g_dbus_create_error(message, "org.openobex.Error.Failed",
+									NULL);
+
+	map->msg = dbus_message_ref(message);
+
+	return NULL;
+}
+
 static GDBusMethodTable map_methods[] = {
 	{ "SetFolder",		"s", "",	map_setpath,
 						G_DBUS_METHOD_FLAG_ASYNC },
@@ -276,6 +329,8 @@ static GDBusMethodTable map_methods[] = {
 						G_DBUS_METHOD_FLAG_ASYNC },
 	{ "GetMessage",		"sa{ss}s", "o",	map_get_message },
 	{ "UpdateInbox",	"", "",		map_update_inbox,
+						G_DBUS_METHOD_FLAG_ASYNC },
+	{ "PushMessage",	"ss", "s",	map_push_message,
 						G_DBUS_METHOD_FLAG_ASYNC },
 	{ }
 };

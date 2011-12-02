@@ -1419,7 +1419,8 @@ int obc_session_put(struct obc_session *session, char *buf, const char *type,
 		return -EIO;
 	}
 
-	obc_transfer_set_buffer(transfer, buf);
+	if (buf != NULL)
+		obc_transfer_set_buffer(transfer, buf);
 
 	err = session_request(session, session_prepare_put, transfer);
 	if (err < 0)
